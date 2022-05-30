@@ -98,6 +98,7 @@ type
     lock: Lock
     notFullCond, notEmptyCond: Cond
     closed: Atomic[bool]
+    overwrite: bool
     size: int
     itemsize: int # up to itemsize bytes can be exchanged over this channel
     head: int     # Items are taken from head and new items are inserted at tail
@@ -191,11 +192,19 @@ proc freeChannel(chan: ChannelRaw) =
 # MPMC Channels (Multi-Producer Multi-Consumer)
 # ----------------------------------------------------------------------------------
 
+template incr(chan: ChannelRaw, name: untyped) =
+  inc chan.`name`
+  if chan.`name` == 2 * chan.size:
+    chan.`name` = 0
+
 proc sendUnbufferedMpmc(chan: ChannelRaw, data: pointer, size: int, nonBlocking: bool): bool =
   if nonBlocking and chan.isFullUnbuf:
     return false
 
   acquire(chan.lock)
+
+  if chan.overwrite and chan.isFull:
+    chan.head = 0
 
   if nonBlocking and chan.isFullUnbuf:
     # Another thread was faster
@@ -222,10 +231,14 @@ proc sendMpmc(chan: ChannelRaw, data: pointer, size: int, nonBlocking: bool): bo
   if isUnbuffered(chan):
     return sendUnbufferedMpmc(chan, data, size, nonBlocking)
 
-  if nonBlocking and chan.isFull:
+  if not chan.overwrite and nonBlocking and chan.isFull:
     return false
 
   acquire(chan.lock)
+
+  if chan.overwrite and chan.isFull:
+    # this effectively turns the channel into a ring buffer
+    chan.incr(head)
 
   if nonBlocking and chan.isFull:
     # Another thread was faster
@@ -243,9 +256,7 @@ proc sendMpmc(chan: ChannelRaw, data: pointer, size: int, nonBlocking: bool): bo
 
   copyMem(chan.buffer[writeIdx * chan.itemsize].addr, data, size)
 
-  inc chan.tail
-  if chan.tail == 2 * chan.size:
-    chan.tail = 0
+  chan.incr(tail)
 
   release(chan.lock)
   signal(chan.notEmptyCond)
@@ -304,9 +315,7 @@ proc recvMpmc(chan: ChannelRaw, data: pointer, size: int, nonBlocking: bool): bo
 
   copyMem(data, chan.buffer[readIdx * chan.itemsize].addr, size)
 
-  inc chan.head
-  if chan.head == 2 * chan.size:
-    chan.head = 0
+  chan.incr(head)
 
   release(chan.lock)
   signal(chan.notFullCond)
@@ -392,6 +401,7 @@ when false:
 
 proc peek*[T](c: Chan[T]): int {.inline.} = peek(c.d)
 
-proc newChan*[T](elements = 30): Chan[T] =
+proc newChan*[T](elements = 30, overwrite = false): Chan[T] =
   assert elements >= 1, "Elements must be positive!"
   result = Chan[T](d: allocChannel(sizeof(T), elements))
+  result.d.overwrite = overwrite
