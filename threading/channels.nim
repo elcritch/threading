@@ -193,9 +193,9 @@ proc freeChannel(chan: ChannelRaw) =
 # ----------------------------------------------------------------------------------
 
 template incr(chan: ChannelRaw, name: untyped) =
-  inc chan.`name`
-  if chan.`name` == 2 * chan.size:
-    chan.`name` = 0
+  inc `name`
+  if `name` == 2 * chan.size:
+    `name` = 0
 
 proc sendUnbufferedMpmc(chan: ChannelRaw, data: pointer, size: int, nonBlocking: bool): bool =
   if nonBlocking and chan.isFullUnbuf:
@@ -238,7 +238,7 @@ proc sendMpmc(chan: ChannelRaw, data: pointer, size: int, nonBlocking: bool): bo
 
   if chan.overwrite and chan.isFull:
     # this effectively turns the channel into a ring buffer
-    chan.incr(head)
+    chan.incr(chan.head)
 
   if nonBlocking and chan.isFull:
     # Another thread was faster
@@ -256,7 +256,7 @@ proc sendMpmc(chan: ChannelRaw, data: pointer, size: int, nonBlocking: bool): bo
 
   copyMem(chan.buffer[writeIdx * chan.itemsize].addr, data, size)
 
-  chan.incr(tail)
+  chan.incr(chan.tail)
 
   release(chan.lock)
   signal(chan.notEmptyCond)
@@ -315,11 +315,48 @@ proc recvMpmc(chan: ChannelRaw, data: pointer, size: int, nonBlocking: bool): bo
 
   copyMem(data, chan.buffer[readIdx * chan.itemsize].addr, size)
 
-  chan.incr(head)
+  chan.incr(chan.head)
 
   release(chan.lock)
   signal(chan.notFullCond)
   result = true
+
+proc copyMpmc(chan: ChannelRaw, data: pointer, size: int, count: int, nonBlocking: bool): int =
+  assert not chan.isNil
+  assert not data.isNil
+
+  when defined(TODO): ## this needs to be handled but just experimenting now
+    if isUnbuffered(chan):
+      return recvUnbufferedMpmc(chan, data, size, nonBlocking)
+
+  if nonBlocking and chan.isEmpty:
+    return 0
+
+  acquire(chan.lock)
+
+  if nonBlocking and chan.isEmpty:
+    # Another thread took the last data
+    release(chan.lock)
+    return 0
+
+  while chan.isEmpty:
+    wait(chan.notEmptyCond, chan.lock)
+
+  assert not chan.isEmpty
+  assert size <= chan.itemsize
+
+  var readIdx = if chan.head < chan.size: chan.head
+                else: chan.head - chan.size
+  
+  var count = 0
+  while count < chan.numItems():
+    count.inc()
+    copyMem(data, chan.buffer[readIdx * chan.itemsize].addr, size)
+    chan.incr(readIdx)
+
+  release(chan.lock)
+  signal(chan.notFullCond)
+  result = count
 
 
 # Public API
@@ -356,6 +393,11 @@ proc channelReceive[T](chan: Chan[T], data: ptr T, size: int, nonBlocking: bool)
   ## (Remove the first item)
   recvMpmc(chan.d, data, size, nonBlocking)
 
+proc channelCopy[T](chan: Chan[T], data: ptr T, size: int, count: int, nonBlocking: bool): int {.inline.} =
+  ## Receive an item from the channel
+  ## (Remove the first item)
+  result = copyMpmc(chan.d, data, size, count, nonBlocking)
+
 proc trySend*[T](c: Chan[T], src: var Isolated[T]): bool {.inline.} =
   ## Sends item to the channel(non blocking).
   var data = src.extract
@@ -386,6 +428,11 @@ template send*[T](c: Chan[T]; src: T) =
 proc recv*[T](c: Chan[T], dst: var T) {.inline.} =
   ## Receives item from the channel(blocking).
   discard channelReceive(c, dst.addr, sizeof(dst), false)
+
+proc copyAll*[T](c: Chan[T], dst: var seq[T]): int =
+  ## Receives item from the channel(blocking).
+  result = channelCopy(c, dst.addr, sizeof(dst), dst.len(), false)
+  dst.setLen(result)
 
 proc recvIso*[T](c: Chan[T]): Isolated[T] {.inline.} =
   var dst: T
