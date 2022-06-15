@@ -402,6 +402,11 @@ when false:
 proc peek*[T](c: Chan[T]): int {.inline.} = peek(c.d)
 
 proc newChan*[T](elements = 30, overwrite = false): Chan[T] =
+  ## create a new channel implemented using a ring buffer
+  ## with proper multi-threaded locking.
+  ## 
+  ## `overwrite` sets up the channel to overwrite the oldest
+  ## data without blocking in `send` or `trySend`.
   assert elements >= 1, "Elements must be positive!"
   result = Chan[T](d: allocChannel(sizeof(T), elements))
   result.d.overwrite = overwrite
