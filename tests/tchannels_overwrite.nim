@@ -38,14 +38,16 @@ suite "testing Chan with overwrite mode":
     check messages == @["msg7", "msg8", "msg9", "msg10"]
 
   test "basic overwrite tests":
-
     var chan = newChan[string](elements = 4, overwrite = true)
-
     runMultithreadInOrderTest(chan)
 
-  test "basic blocking multithread":
-    var chan = newChan[string]()
-    runMultithreadBockTest(chan)
+  test "basic non-blocking recv multithread":
+    var chan = newChan[string](overwrite=true)
+    runMultithreadNonRecvBlockTest(chan)
+
+  test "basic blocking recv multithread":
+    var chan = newChan[string](overwrite=true)
+    runMultithreadRecvBlockTest(chan)
 
 
 

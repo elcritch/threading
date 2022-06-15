@@ -25,6 +25,10 @@ suite "testing Chan with overwrite mode":
     var chan = newChan[string]()
     runMultithreadInOrderTest(chan)
 
-  test "basic blocking multithread":
+  test "basic non-blocking multithread":
     var chan = newChan[string]()
-    runMultithreadBockTest(chan)
+    runMultithreadNonRecvBlockTest(chan)
+
+  test "basic blocking multithread":
+    var chan = newChan[string](overwrite=true)
+    runMultithreadRecvBlockTest(chan)
