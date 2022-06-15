@@ -7,20 +7,13 @@ import threading/channels
 import std/[os, logging, unittest]
 
 template runMultithreadTest*[T](chan: Chan[T]) =
-  # This proc will be run in another thread using the threads module.
-  proc firstWorker() =
-    chan.send("Hello World!")
-
-  # This is another proc to run in a background thread. This proc takes a while
-  # to send the message since it sleeps for 2 seconds (or 2000 milliseconds).
-  proc secondWorker() =
-    sleep(2000)
-    chan.send("Another message")
-
-
-  # Launch the worker.
   var worker1: Thread[void]
-  createThread(worker1, firstWorker)
+  var worker2: Thread[void]
+
+  # Launch the first worker.
+  createThread(worker1, proc () =
+    # This proc will be run in another thread using the threads module.
+    chan.send("Hello World!"))
 
   # Block until the message arrives, then print it out.
   var dest = ""
@@ -31,8 +24,12 @@ template runMultithreadTest*[T](chan: Chan[T]) =
   worker1.joinThread()
 
   # Launch the other worker.
-  var worker2: Thread[void]
-  createThread(worker2, secondWorker)
+  createThread(worker2, proc () =
+    # This is another proc to run in a background thread. This proc takes a while
+    # to send the message since it sleeps for 2 seconds (or 2000 milliseconds).
+    sleep(2000)
+    chan.send("Another message"))
+
   # This time, use a non-blocking approach with tryRecv.
   # Since the main thread is not blocked, it could be used to perform other
   # useful work while it waits for data to arrive on the channel.
