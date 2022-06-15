@@ -151,7 +151,7 @@ proc isUnbuffered(chan: ChannelRaw): bool =
 
 proc isClosed(chan: ChannelRaw): bool {.inline.} = load(chan.closed, moRelaxed)
 
-proc peek(chan: ChannelRaw): int {.inline.} =
+proc peek(chan: ChannelRaw): int =
   (if chan.isUnbuffered: numItemsUnbuf(chan) else: numItems(chan))
 
 
@@ -399,7 +399,7 @@ when false:
   proc close*[T](c: Chan[T]) {.inline.} =
     store(c.d.closed, true, moRelaxed)
 
-proc peek*[T](c: Chan[T]): int {.inline.} = peek(c.d)
+proc peek*[T](c: Chan[T]): int = peek(c.d)
 
 proc newChan*[T](elements = 30, overwrite = false): Chan[T] =
   ## create a new channel implemented using a ring buffer

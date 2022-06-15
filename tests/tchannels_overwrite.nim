@@ -5,7 +5,7 @@ discard """
 
 import threading/channels
 import std/[os, logging, unittest]
-from tchannels_simple import runMultithreadTest
+import common
 
 suite "testing Chan with overwrite mode":
   var logger = newConsoleLogger(levelThreshold=lvlInfo)
@@ -41,7 +41,11 @@ suite "testing Chan with overwrite mode":
 
     var chan = newChan[string](elements = 4, overwrite = true)
 
-    runMultithreadTest(chan)
+    runMultithreadInOrderTest(chan)
+
+  test "basic blocking multithread":
+    var chan = newChan[string]()
+    runMultithreadBockTest(chan)
 
 
 
