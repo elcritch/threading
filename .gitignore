@@ -1,5 +1,9 @@
+*
+!*.*
+!*/
+*.dll
+*.exe
+*.dSYM
 nimcache/
 nimblecache/
 htmldocs/
-tests/tsmartptrsleak
-tests/tchannels_simple
