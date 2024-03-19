@@ -104,10 +104,9 @@ macro atomicAccessors*(tp: typed) =
       let acc = quote do:
         proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
           newAtomicRef(`obj`.unsafeGet().`fieldName`)
-        atomicAccessors(`tp`)
+        atomicAccessors(`fieldTp`)
       result.add acc
-
-  echo "RES:\n", result.repr
+  echo "RES:\n", result.treeRepr
 
 # macro mkAccessor(name, tp, parentTp: untyped): untyped =
 #   let n = ident name.strVal
@@ -123,11 +122,12 @@ macro atomicAccessors*(tp: typed) =
 #     when typeof(field) is ref:
 #       mkAccessor(name, typeof(field), tp)
 
-type
-  Test* = ref object
-    msg*: string
+when isMainModule:
+  type
+    Test* = ref object
+      msg*: string
 
-  Foo* = ref object
-    inner*: Test
+    Foo* = ref object
+      inner*: Test
 
-atomicAccessors(Foo)
+  atomicAccessors(Foo)
