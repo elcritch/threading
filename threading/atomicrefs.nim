@@ -76,8 +76,8 @@ proc newAtomicRef[T: ref](obj: T): Atomic[T] =
   var cell = head(cast[pointer](result.rp))
   discard atomicInc(cell.rc, rcIncrement)
 
-proc `[]`*[T: ref object](aref: Atomic[T]): lent T =
-  aref.rp
+# proc `[]`*[T: ref object](aref: Atomic[T]): lent T =
+#   aref.rp
 
 proc inner*(obj: Atomic[Foo]): Atomic[Test] =
   newAtomicRef(obj.rp.inner)
@@ -124,9 +124,9 @@ proc testDeep() =
   echo "t2: addr: ", cast[pointer](t2.rp).repr
   echo "t2: ", head(cast[pointer](t2.rp)).count()
 
-  echo "t1: ", t1[].inner.msg
-  echo "t2: ", t2[].inner.msg
-  echo "t2.inner:", " isUnique: ", t2[].inner.isUniqueRef
+  echo "t1: ", t1.inner.msg
+  echo "t2: ", t2.inner.msg
+  echo "t2.inner:", " isUnique: ", t2.inner.rp.isUniqueRef
   let y: Atomic[Test] = t1.inner
   echo "y: addr: ", cast[pointer](y.rp).repr
   echo "y: ", y.msg, " isUnique: ", y.rp.isUniqueRef()
