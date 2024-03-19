@@ -7,7 +7,7 @@ type
   Test* = ref object
     msg*: string
 
-block trySend_recv:
+proc testBasic() =
   proc test(aref: Atomic[Test]) {.thread.} =
     echo "thread: ", aref
 
@@ -15,5 +15,6 @@ block trySend_recv:
   var t1 = Atomic[Test](obj: Test(msg: "hello world!"))
 
   createThread(thread, test, t1)
-
   thread.joinThread()
+
+testBasic()
