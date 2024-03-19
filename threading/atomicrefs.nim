@@ -39,7 +39,7 @@ type
     inner*: Test
 
 proc `=destroy`*(obj: var type(Test()[])) =
-  echo "destroying Test obj ", obj.msg
+  echo "destroying Test obj: ", obj.msg
   `=destroy`(obj.msg)
 
 proc `=destroy`*[T](aref: var Atomic[T]) =
@@ -75,9 +75,6 @@ proc newAtomicRef[T: ref](obj: T): Atomic[T] =
   result = Atomic[T](rp: obj)
   var cell = head(cast[pointer](result.rp))
   discard atomicInc(cell.rc, rcIncrement)
-
-# proc `[]`*[T: ref object](aref: Atomic[T]): lent T =
-#   aref.rp
 
 proc inner*(obj: Atomic[Foo]): Atomic[Test] =
   newAtomicRef(obj.rp.inner)
