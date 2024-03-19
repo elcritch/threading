@@ -76,27 +76,49 @@ proc unsafeCount*[T](aref: ref T): int =
 import macros
 import typetraits
 
-macro mkAccessor(name, tp, parentTp: untyped): untyped =
-  let n = ident name.strVal
-  let obj = ident "obj"
+macro atomicAccessors*(tp: typed) =
 
-  result = quote do:
-    proc `n`(`obj`: Atomic[`parentTp`]): Atomic[`tp`] =
-      newAtomicRef(`obj`.unsafeGet().`n`)
-    atomicAccessors(`tp`)
+  tp.expectKind(nnkSym)
+  let tname = tp.strVal
+  let timpl = tp.getImpl()
+  timpl.expectKind(nnkTypeDef)
+  timpl[^1].expectKind(nnkRefTy)
 
-template atomicAccessors*(tp: typed) =
-  for name, field in fieldPairs(tp()[]):
-    when typeof(field) is ref:
-      mkAccessor(name, typeof(field), tp)
+  echo "TP: ", tname
+  echo "TP:\n", timpl.treeRepr
+  let tbody = timpl[^1][0]
+  if tbody.kind == nnkObjectTy:
+    let idents = tbody[^1]
+    idents.expectKind(nnkRecList)
+    echo "obj:\n", idents.treeRepr
+    for ident in idents:
+      if ident[0].kind != nnkPostFix:
+        continue
+      let name = ident[0][1].repr
+      let fieldTp = ident[1]
+      echo "ident: ", name.repr, " tp: ", fieldTp
 
-# when isMainModule:
-#   type
-#     Test* = ref object
-#       msg*: string
+# macro mkAccessor(name, tp, parentTp: untyped): untyped =
+#   let n = ident name.strVal
+#   let obj = ident "obj"
 
-#     Foo* = ref object
-#       inner*: Test
+#   result = quote do:
+#     proc `n`(`obj`: Atomic[`parentTp`]): Atomic[`tp`] =
+#       newAtomicRef(`obj`.unsafeGet().`n`)
+#     atomicAccessors(`tp`)
 
-#   expandMacros:
-#     atomicAccessors(Foo)
+# template atomicAccessors*(tp: typed) =
+#   for name, field in fieldPairs(tp()[]):
+#     when typeof(field) is ref:
+#       mkAccessor(name, typeof(field), tp)
+
+when isMainModule:
+  type
+    Test* = ref object
+      msg*: string
+
+    Foo* = ref object
+      inner*: Test
+
+  expandMacros:
+    atomicAccessors(Foo)
