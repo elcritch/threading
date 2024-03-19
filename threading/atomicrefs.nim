@@ -96,7 +96,7 @@ macro atomicAccessors*(tp: typed) =
     for ident in idents:
       if ident[0].kind != nnkPostFix:
         continue
-      let name = ident(ident[0][1].repr & "Access")
+      let name = ident(ident[0][1].strVal)
       let fieldName = ident ident[0][1].repr
       let fieldTp = ident[1]
       let obj = ident "obj"
@@ -106,8 +106,11 @@ macro atomicAccessors*(tp: typed) =
           proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
             newAtomicRef(`obj`.unsafeGet().`fieldName`)
           atomicAccessors(`fieldTp`)
+        else:
+          proc `name`*(`obj`: Atomic[`tname`]): `fieldTp` =
+            `obj`.unsafeGet().`fieldName`
       result.add acc
-  echo "RES:\n", result.treeRepr
+  echo "RES:\n", result.repr
 
 # macro mkAccessor(name, tp, parentTp: untyped): untyped =
 #   let n = ident name.strVal
@@ -131,4 +134,5 @@ when isMainModule:
     Foo* = ref object
       inner*: Test
 
+  # expandMacros:
   atomicAccessors(Foo)
