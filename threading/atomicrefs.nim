@@ -85,35 +85,6 @@ proc inner*(obj: Atomic[Foo]): Atomic[Test] =
 proc msg*(obj: Atomic[Test]): string =
   obj.rp.msg
 
-# proc testBasic() =
-#   proc test(aref: Atomic[Test]) {.thread.} =
-#     var lref = aref
-#     echo "thread: ", lref[].msg
-
-#   var thread: Thread[Atomic[Test]]
-#   var t1 = newAtomic[Test](Test(msg: "hello world!"))
-#   var t2 = t1
-
-#   createThread(thread, test, t1)
-#   thread.joinThread()
-#   echo "t2: ", t2[].msg
-
-# testBasic()
-# echo "done"
-
-# proc testBasic() =
-
-#   var t1 = newAtomic[Test](Test(msg: "hello world!"))
-#   var t2 = t1
-
-#   echo "t1: ", cast[pointer](t1.rp).repr
-#   echo "t2: ", cast[pointer](t2.rp).repr
-#   echo "t2: ", head(cast[pointer](t2.rp)).count()
-
-#   echo "t1: ", t1[].msg
-#   echo "t2: ", t2[].msg
-
-# testBasic()
 
 proc testDeep() =
 
@@ -132,3 +103,16 @@ proc testDeep() =
   echo "y: ", y.msg, " isUnique: ", y.rp.isUniqueRef()
 
 testDeep()
+
+# proc testThread() =
+#   proc test(aref: Atomic[Test]) {.thread.} =
+#     var lref = aref
+#     echo "thread: ", lref[].msg
+#   var thread: Thread[Atomic[Test]]
+#   var t1 = newAtomic[Test](Test(msg: "hello world!"))
+#   var t2 = t1
+#   createThread(thread, test, t1)
+#   thread.joinThread()
+#   echo "t2: ", t2[].msg
+# testThread()
+# echo "done"
