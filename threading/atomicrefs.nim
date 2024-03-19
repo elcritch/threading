@@ -30,8 +30,8 @@ template count(x: Cell): untyped =
 
 type
   Atomic*[T: ref] {.requiresInit.} = object
-    rp: T
-    # rp {.cursor.}: T
+    # rp: T
+    rp {.cursor.}: T
 
   Test* = ref object
     msg*: string
@@ -46,40 +46,57 @@ proc `=destroy`*[T](aref: var Atomic[T]) =
     var cell = head(cast[pointer](aref.rp))
     echo "decl aref: ", cell.rc, " ", cell.count()
     # `atomicDec` returns the new value
-    if atomicDec(cell.rc, rcIncrement) == -rcIncrement:
-      echo "is last"
-      GC_ref(aref.rp)
+    if atomicDec(cell.rc, rcIncrement) == 0:
+      echo "\nlast <<<"
       `=destroy`(aref.rp)
-    echo "post decl aref: ", cell.rc, " ", cell.count()
+      aref.rp = nil
+      echo ">> done"
 
-when false:
-  proc `=copy`*[T](dest: var Atomic[T]; source: Atomic[T]) =
-    echo "copy"
-    # protect against self-assignments:
-    if dest.obj != source.obj:
-      `=destroy`(dest)
-      wasMoved(dest)
-      dest.obj = source.obj
-      GC_ref(dest.obj)
+proc `=copy`*[T](dest: var Atomic[T]; source: Atomic[T]) =
+  echo "copy"
+  # protect against self-assignments:
+  if dest.rp != source.rp:
+    # `=destroy`(dest)
+    # wasMoved(dest)
+    dest.rp = source.rp
+    var cell = head(cast[pointer](dest.rp))
+    discard atomicInc(cell.rc, rcIncrement)
+    echo "copy cnt: ", cell.count
 
 proc newAtomic*[T: ref](obj: sink T): Atomic[T] =
-  result = Atomic[Test](rp: obj)
-  GC_ref(result.rp)
+  result = Atomic[Test](rp: move obj)
+  var cell = head(cast[pointer](result.rp))
+  discard atomicInc(cell.rc, 2*rcIncrement)
 
 proc `[]`*[T: ref object](aref: Atomic[T]): lent T =
   aref.rp
 
-proc testBasic() =
-  proc test(aref: Atomic[Test]) {.thread.} =
-    var lref = aref
-    echo "thread: ", lref[].msg
+# proc testBasic() =
+#   proc test(aref: Atomic[Test]) {.thread.} =
+#     var lref = aref
+#     echo "thread: ", lref[].msg
 
-  var thread: Thread[Atomic[Test]]
-  var t1 = Atomic[Test](rp: Test(msg: "hello world!"))
+#   var thread: Thread[Atomic[Test]]
+#   var t1 = newAtomic[Test](Test(msg: "hello world!"))
+#   var t2 = t1
+
+#   createThread(thread, test, t1)
+#   thread.joinThread()
+#   echo "t2: ", t2[].msg
+
+# testBasic()
+# echo "done"
+
+proc testBasic() =
+
+  var t1 = newAtomic[Test](Test(msg: "hello world!"))
   var t2 = t1
 
-  createThread(thread, test, t1)
-  thread.joinThread()
+  echo "t1: ", cast[pointer](t1.rp).repr
+  echo "t2: ", cast[pointer](t2.rp).repr
+  echo "t2: ", head(cast[pointer](t2.rp)).count()
+
+  echo "t1: ", t1[].msg
   echo "t2: ", t2[].msg
 
 testBasic()
