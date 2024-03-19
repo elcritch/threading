@@ -74,28 +74,46 @@ proc unsafeCount*[T](aref: ref T): int =
 
 
 import macros
+import typetraits
 
-macro atomicAccessors*(tp: typed) =
+# macro atomicAccessors*(tp: typed) =
 
-  tp.expectKind(nnkSym)
-  let timpl = tp.getImpl()
-  timpl.expectKind(nnkTypeDef)
-  timpl[^1].expectKind(nnkRefTy)
+#   tp.expectKind(nnkSym)
+#   let tname = tp.strVal
+#   let timpl = tp.getImpl()
+#   timpl.expectKind(nnkTypeDef)
+#   timpl[^1].expectKind(nnkRefTy)
 
-  # echo "TP:\n", timpl.treeRepr
-  let tbody = timpl[^1][0]
-  if tbody.kind == nnkObjectTy:
-    let idents = tbody[^1]
-    idents.expectKind(nnkRecList)
-    echo "obj:\n", idents.treeRepr
-    for ident in idents:
-      if ident[0].kind != nnkPostFix:
-        continue
-      let name = ident[0][1].repr
-      let fieldTp = ident[1]
-      echo "ident: ", name.repr, " tp: ", fieldTp
+#   echo "TP: ", tname
+#   echo "TP:\n", timpl.treeRepr
+#   let tbody = timpl[^1][0]
+#   if tbody.kind == nnkObjectTy:
+#     let idents = tbody[^1]
+#     idents.expectKind(nnkRecList)
+#     echo "obj:\n", idents.treeRepr
+#     for ident in idents:
+#       if ident[0].kind != nnkPostFix:
+#         continue
+#       let name = ident[0][1].repr
+#       let fieldTp = ident[1]
+#       echo "ident: ", name.repr, " tp: ", fieldTp
 
+macro mkAccessor(name, tp, parentTp: untyped): untyped =
+  let n = ident name.strVal
+  let obj = ident "obj"
 
+  result = quote do:
+    proc `n`(`obj`: Atomic[`parentTp`]): Atomic[`tp`] =
+      newAtomicRef(`obj`.unsafeGet().`n`)
+
+template atomicAccessors*(tp: typed) =
+  for name, field in fieldPairs(tp()[]):
+    static:
+      echo "NAME: ", name, " isRef: ", tp is ref
+    when typeof(field) is ref:
+      static:
+        echo "NAME: make accessor: ", name
+      mkAccessor(name, typeof(field), tp)
 
 when isMainModule:
   type
@@ -105,4 +123,5 @@ when isMainModule:
     Foo* = ref object
       inner*: Test
 
-  atomicAccessors(Foo)
+  expandMacros:
+    atomicAccessors(Foo)
