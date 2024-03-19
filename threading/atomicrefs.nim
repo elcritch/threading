@@ -29,7 +29,7 @@ template count(x: Cell): untyped =
   x.rc shr rcShift
 
 type
-  Atomic*[T: ref] = object
+  Atomic*[T: ref] {.requiresInit.} = object
     rp: T
     # rp {.cursor.}: T
 
@@ -46,9 +46,11 @@ proc `=destroy`*[T](aref: var Atomic[T]) =
     var cell = head(cast[pointer](aref.rp))
     echo "decl aref: ", cell.rc, " ", cell.count()
     # `atomicDec` returns the new value
-    # if atomicDec(cell.rc, rcIncrement) == -1:
-    #   echo "is last"
-    `=destroy`(aref.rp)
+    if atomicDec(cell.rc, rcIncrement) == -rcIncrement:
+      echo "is last"
+      GC_ref(aref.rp)
+      `=destroy`(aref.rp)
+    echo "post decl aref: ", cell.rc, " ", cell.count()
 
 when false:
   proc `=copy`*[T](dest: var Atomic[T]; source: Atomic[T]) =
@@ -60,6 +62,9 @@ when false:
       dest.obj = source.obj
       GC_ref(dest.obj)
 
+proc newAtomic*[T: ref](obj: sink T): Atomic[T] =
+  result = Atomic[Test](rp: obj)
+  GC_ref(result.rp)
 
 proc `[]`*[T: ref object](aref: Atomic[T]): lent T =
   aref.rp
@@ -78,3 +83,4 @@ proc testBasic() =
   echo "t2: ", t2[].msg
 
 testBasic()
+echo "done"
