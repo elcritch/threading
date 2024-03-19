@@ -6,14 +6,21 @@ type
   Test* = object
     msg*: string
 
+  Bar* = object
+    field*: Test
+
   Foo* = ref object
     inner*: ref Test
-    other*: string
-
+    other*: Bar
 
 proc `=destroy`*(obj: Test) =
   echo "destroying Test obj: ", obj.msg
   `=destroy`(obj.msg)
+
+proc `=destroy`*(obj: Bar) =
+  echo "destroying Bar obj: ", obj.field
+  `=destroy`(obj.field)
+
 
 atomicAccessors(Foo)
 

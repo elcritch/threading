@@ -36,31 +36,42 @@ type
       obj: T
 
 proc `=destroy`*[T](aref: Atomic[T]) =
-  if aref.rp != nil:
-    var cell = head(cast[pointer](aref.rp))
-    echo "destroy aref: ", cast[pointer](aref.rp).repr, " rc: ", cell.rc, " cnt: ", cell.count()
-    # `atomicDec` returns the new value
-    if atomicDec(cell.rc, rcIncrement) == -rcIncrement:
-      echo "\nlast <<<"
-      inc cell.rc, rcIncrement # hack to re-use normal destroy
-      `=destroy`(aref.rp)
-      echo ">> done"
+  when T is ref:
+    if aref.rp != nil:
+      var cell = head(cast[pointer](aref.rp))
+      echo "destroy aref: ", cast[pointer](aref.rp).repr, " rc: ", cell.rc, " cnt: ", cell.count()
+      # `atomicDec` returns the new value
+      if atomicDec(cell.rc, rcIncrement) == -rcIncrement:
+        echo "\nlast <<<"
+        inc cell.rc, rcIncrement # hack to re-use normal destroy
+        `=destroy`(aref.rp)
+        echo ">> done"
+  elif T is object:
+    # `=destroy`(aref)
+    discard
 
 proc `=copy`*[T](dest: var Atomic[T]; source: Atomic[T]) =
   echo "copy"
-  # protect against self-assignments:
-  if dest.rp != source.rp:
-    `=destroy`(dest)
-    wasMoved(dest)
-    dest.rp = source.rp
-    var cell = head(cast[pointer](dest.rp))
-    discard atomicInc(cell.rc, rcIncrement)
-    echo "copy cnt: ", cell.count
+  when T is ref:
+    # protect against self-assignments:
+    if dest.rp != source.rp:
+      `=destroy`(dest)
+      wasMoved(dest)
+      dest.rp = source.rp
+      var cell = head(cast[pointer](dest.rp))
+      discard atomicInc(cell.rc, rcIncrement)
+      echo "copy cnt: ", cell.count
+  elif T is object:
+    # `=destroy`(aref)
+    discard
 
 proc newAtomic*[T: ref](obj: sink T): Atomic[T] =
   result = Atomic[T](rp: move obj)
   var cell = head(cast[pointer](result.rp))
   discard atomicInc(cell.rc, rcIncrement)
+
+proc newAtomic*[T: object](obj: T): Atomic[T] =
+  result = Atomic[T](obj: obj)
 
 proc newAtomicRef*[T: ref](obj: T): Atomic[T] =
   result = Atomic[T](rp: obj)
@@ -97,7 +108,7 @@ macro atomicAccessors*(tp: typed) =
     timpl = tp[^1].getImpl()
     tname = tp
 
-  # echo "TIMPL: ", timpl.treeRepr
+  echo "TIMPL: ", timpl.treeRepr
 
   var tbody = timpl[^1]
   if tbody.kind == nnkRefTy:
@@ -114,6 +125,7 @@ macro atomicAccessors*(tp: typed) =
   result = newStmtList()
   for ident in idents:
     if ident[0].kind != nnkPostFix:
+      echo "TIDENT: cont"
       continue
     let name = ident(ident[0][1].strVal)
     let fieldName = ident ident[0][1].repr
@@ -128,14 +140,19 @@ macro atomicAccessors*(tp: typed) =
     else: mcTable[fieldKey] = fieldTp
 
     if fieldIsRef:
+      echo "TP:REF: "
       result.add quote do:
         proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
           newAtomicRef(`obj`.unsafeGet().`fieldName`)
         atomicAccessors(`fieldTp`)
     elif fieldIsObj:
+      echo "TP:OBJ: "
       result.add quote do:
+        proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
+          newAtomic(`obj`.unsafeGet().`fieldName`)
         atomicAccessors(`fieldTp`)
     else:
+      echo "TP:ELSE: "
       result.add quote do:
         proc `name`*(`obj`: Atomic[`tname`]): `fieldTp` =
           `obj`.unsafeGet().`fieldName`
