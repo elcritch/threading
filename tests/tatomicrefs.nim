@@ -16,12 +16,6 @@ proc `=destroy`*(obj: type(Test()[])) =
 import std/macros
 atomicAccessors(Foo)
 
-# proc inner*(obj: Atomic[Foo]): Atomic[Test] =
-#   newAtomicRef(obj.unsafeGet().inner)
-
-# proc msg*(obj: Atomic[Test]): string =
-#   obj.unsafeGet().msg
-
 proc testDeep() =
 
   var t1 = newAtomic(Foo(inner: Test(msg: "hello world!")))
