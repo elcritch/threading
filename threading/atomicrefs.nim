@@ -7,9 +7,12 @@ type
   Test* = ref object
     msg*: string
 
+proc `[]`*[T: ref object](aref: Atomic[T]): lent T =
+  aref.obj
+
 proc testBasic() =
   proc test(aref: Atomic[Test]) {.thread.} =
-    echo "thread: ", aref
+    echo "thread: ", aref[].msg
 
   var thread: Thread[Atomic[Test]]
   var t1 = Atomic[Test](obj: Test(msg: "hello world!"))
