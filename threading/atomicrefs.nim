@@ -122,9 +122,11 @@ macro atomicAccessors*(tp: typed) =
     let fieldKd = fieldTp.getType()
     let fieldIsRef = fieldKd.kind == nnkBracketExpr and fieldKd[0].strVal == "ref"
     let fieldIsObj = fieldKd.kind == nnkObjectTy
-    # echo "FIELD: ", fieldTp.treeRepr
-    # echo "FIELD: ", fieldTp.getType.treeRepr
-    echo "FIELD: ", fieldName, " tp: ", fieldTp, " fieldIsRef: ", fieldIsRef, " fieldIsObj: ", fieldIsObj
+    let fieldKey = fieldName.repr & "::" & fieldTp.repr
+
+    if fieldKey in mcTable: continue
+    else: mcTable[fieldKey] = fieldTp
+
     if fieldIsRef:
       result.add quote do:
         proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
@@ -152,7 +154,7 @@ when isMainModule:
       field*: Test
 
     Foo* = ref object
-      inner*: Test2
+      inner*: Test
       outer*: Bar
 
   atomicAccessors(Foo)
