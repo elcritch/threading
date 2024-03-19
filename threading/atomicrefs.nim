@@ -79,10 +79,12 @@ import typetraits
 macro atomicAccessors*(tp: typed) =
 
   tp.expectKind(nnkSym)
-  let tname = tp.strVal
+  let tname = ident tp.strVal
   let timpl = tp.getImpl()
   timpl.expectKind(nnkTypeDef)
   timpl[^1].expectKind(nnkRefTy)
+
+  result = newStmtList()
 
   echo "TP: ", tname
   echo "TP:\n", timpl.treeRepr
@@ -94,9 +96,17 @@ macro atomicAccessors*(tp: typed) =
     for ident in idents:
       if ident[0].kind != nnkPostFix:
         continue
-      let name = ident[0][1].repr
+      let name = ident(ident[0][1].repr & "Access")
+      let fieldName = ident ident[0][1].repr
       let fieldTp = ident[1]
-      echo "ident: ", name.repr, " tp: ", fieldTp
+      let obj = ident "obj"
+      echo "NAME: ", name
+      result.add quote do:
+        proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
+          newAtomicRef(`obj`.unsafeGet().`fieldName`)
+        atomicAccessors(`tp`)
+
+  echo "RES:\n", result.repr
 
 # macro mkAccessor(name, tp, parentTp: untyped): untyped =
 #   let n = ident name.strVal
@@ -112,13 +122,11 @@ macro atomicAccessors*(tp: typed) =
 #     when typeof(field) is ref:
 #       mkAccessor(name, typeof(field), tp)
 
-when isMainModule:
-  type
-    Test* = ref object
-      msg*: string
+type
+  Test* = ref object
+    msg*: string
 
-    Foo* = ref object
-      inner*: Test
+  Foo* = ref object
+    inner*: Test
 
-  expandMacros:
-    atomicAccessors(Foo)
+atomicAccessors(Foo)
