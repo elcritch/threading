@@ -79,42 +79,31 @@ import typetraits
 macro atomicAccessors*(tp: typed) =
 
   echo "\n==============================\n"
-  var tp = tp
-  # echo "TP:tree:\n", tp.treeRepr
-
   var timpl, tname: NimNode
   if tp.kind == nnkSym:
     timpl = tp.getImpl()
     timpl.expectKind(nnkTypeDef)
     tname = tp
-    # echo "\nTIMPL:\n", timpl.treeRepr
   elif tp.kind == nnkRefTy:
-    # echo "REF:TY: "
     timpl = tp[^1].getImpl()
     tname = tp
-    # echo "\nTIMPL:post:\n", timpl.treeRepr
 
   result = newStmtList()
 
-  # echo "TIMPL:kind: ", timpl[^1].kind
   var tobj = timpl[^1]
   if tobj.kind == nnkRefTy:
     tobj = tobj[0]
 
   var tbody = tobj
-  # echo "\nTP:body:\n", tbody.treeRepr
   if tbody.kind == nnkSym:
     let ity = tbody.getImpl()
     ity.expectKind(nnkTypeDef)
     tbody = ity[^1]
 
-  # echo "\nTP:body:post:\n", tbody.treeRepr
   tbody.expectKind(nnkObjectTy)
-
 
   let idents = tbody[^1]
   idents.expectKind(nnkRecList)
-  # echo "\nobj:\n", idents.treeRepr
   for ident in idents:
     if ident[0].kind != nnkPostFix:
       continue
@@ -122,7 +111,6 @@ macro atomicAccessors*(tp: typed) =
     let fieldName = ident ident[0][1].repr
     let fieldTp = ident[1]
     let obj = ident "obj"
-    echo "NAME: ", name
     let acc = quote do:
       when `fieldTp` is ref:
         proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
@@ -151,7 +139,7 @@ when isMainModule:
     TestRef* = ref Test2
 
     Foo2* = object
-      inner2*: TestRef
+      inner2*: ref Test2
     FooRef* = ref Foo2
 
   # expandMacros:

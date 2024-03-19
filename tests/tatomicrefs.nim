@@ -3,13 +3,13 @@ import threading/atomicrefs
 
 
 type
-  Test* = ref object
+  Test* = object
     msg*: string
 
   Foo* = ref object
-    inner*: Test
+    inner*: ref Test
 
-proc `=destroy`*(obj: type(Test()[])) =
+proc `=destroy`*(obj: Test) =
   echo "destroying Test obj: ", obj.msg
   `=destroy`(obj.msg)
 
@@ -17,7 +17,9 @@ atomicAccessors(Foo)
 
 proc testDeep() =
 
-  var t1 = newAtomic(Foo(inner: Test(msg: "hello world!")))
+  let test = Test.new()
+  test.msg = "hello world!"
+  var t1 = newAtomic(Foo(inner: test))
   var t2 = t1
 
   echo "t1: addr: ", cast[pointer](t1.unsafeGet).repr
@@ -32,7 +34,7 @@ proc testDeep() =
 
   block:
     echo ""
-    let y: Atomic[Test] = t1.inner
+    let y: Atomic[ref Test] = t1.inner
     echo "y: addr: ", cast[pointer](y.unsafeGet).repr
     echo "t1:inner:count: ", t1.unsafeGet.inner.unsafeCount()
     echo "y: ", y.msg, "y:count: ", y.unsafeGet.unsafeCount()
