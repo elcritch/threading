@@ -114,8 +114,8 @@ proc testDeep() =
   echo "t2: ", head(cast[pointer](t2.rp)).count()
 
   echo "t1: ", t1[].inner.msg
-  echo "t2: ", t2[].inner.msg
+  echo "t2: ", t2[].inner.msg, " isUnique: ", t2[].inner.isUniqueRef
   let y = t1[].inner
-  echo "y: ", y.msg
+  echo "y: ", y.msg, " isUnique: ", y.isUniqueRef()
 
 testDeep()
