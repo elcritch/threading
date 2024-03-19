@@ -67,12 +67,23 @@ proc `=copy`*[T](dest: var Atomic[T]; source: Atomic[T]) =
     echo "copy cnt: ", cell.count
 
 proc newAtomic*[T: ref](obj: sink T): Atomic[T] =
+  result = Atomic[T](rp: move obj)
+  var cell = head(cast[pointer](result.rp))
+  discard atomicInc(cell.rc, rcIncrement)
+
+proc newAtomicRef[T: ref](obj: T): Atomic[T] =
   result = Atomic[T](rp: obj)
   var cell = head(cast[pointer](result.rp))
   discard atomicInc(cell.rc, rcIncrement)
 
 proc `[]`*[T: ref object](aref: Atomic[T]): lent T =
   aref.rp
+
+proc inner*(obj: Atomic[Foo]): Atomic[Test] =
+  newAtomicRef(obj.rp.inner)
+
+proc msg*(obj: Atomic[Test]): string =
+  obj.rp.msg
 
 # proc testBasic() =
 #   proc test(aref: Atomic[Test]) {.thread.} =
@@ -109,13 +120,14 @@ proc testDeep() =
   var t1 = newAtomic(Foo(inner: Test(msg: "hello world!")))
   var t2 = t1
 
-  echo "t1: ", cast[pointer](t1.rp).repr
-  echo "t2: ", cast[pointer](t2.rp).repr
+  echo "t1: addr: ", cast[pointer](t1.rp).repr
+  echo "t2: addr: ", cast[pointer](t2.rp).repr
   echo "t2: ", head(cast[pointer](t2.rp)).count()
 
   echo "t1: ", t1[].inner.msg
   echo "t2: ", t2[].inner.msg, " isUnique: ", t2[].inner.isUniqueRef
-  let y = t1[].inner
-  echo "y: ", y.msg, " isUnique: ", y.isUniqueRef()
+  let y: Atomic[Test] = t1.inner
+  echo "y: addr: ", cast[pointer](y.rp).repr
+  echo "y: ", y.msg, " isUnique: ", y.rp.isUniqueRef()
 
 testDeep()
