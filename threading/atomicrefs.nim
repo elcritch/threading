@@ -50,7 +50,7 @@ proc `=destroy`*[T](aref: var Atomic[T]) =
     # `atomicDec` returns the new value
     if atomicDec(cell.rc, rcIncrement) == -rcIncrement:
       echo "\nlast <<<"
-      inc cell.rc, rcIncrement
+      inc cell.rc, rcIncrement # hack to re-use normal destroy
       `=destroy`(aref.rp)
       aref.rp = nil
       echo ">> done"
@@ -125,7 +125,8 @@ proc testDeep() =
   echo "t2: ", head(cast[pointer](t2.rp)).count()
 
   echo "t1: ", t1[].inner.msg
-  echo "t2: ", t2[].inner.msg, " isUnique: ", t2[].inner.isUniqueRef
+  echo "t2: ", t2[].inner.msg
+  echo "t2.inner:", " isUnique: ", t2[].inner.isUniqueRef
   let y: Atomic[Test] = t1.inner
   echo "y: addr: ", cast[pointer](y.rp).repr
   echo "y: ", y.msg, " isUnique: ", y.rp.isUniqueRef()
