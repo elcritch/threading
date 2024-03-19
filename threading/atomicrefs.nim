@@ -101,10 +101,11 @@ macro atomicAccessors*(tp: typed) =
       let fieldTp = ident[1]
       let obj = ident "obj"
       echo "NAME: ", name
-      result.add quote do:
+      let acc = quote do:
         proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
           newAtomicRef(`obj`.unsafeGet().`fieldName`)
         atomicAccessors(`tp`)
+      result.add acc
 
   echo "RES:\n", result.repr
 
