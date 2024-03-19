@@ -72,7 +72,6 @@ proc unsafeCount*[T](aref: ref T): int =
   cell.count()
 
 
-
 import macros
 import typetraits
 

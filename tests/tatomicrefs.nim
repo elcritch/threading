@@ -14,6 +14,22 @@ proc `=destroy`*(obj: Test) =
   `=destroy`(obj.msg)
 
 atomicAccessors(Foo)
+when false:
+  when string is ref:
+    proc msg*(obj: Atomic[Test]): Atomic[string] =
+      newAtomicRef(obj.unsafeGet().msg)
+    atomicAccessors(string)
+  else:
+    proc msg*(obj: Atomic[Test]): string =
+      obj.unsafeGet().msg
+
+  when ref Test2 is ref:
+    proc inner2*(obj: Atomic[ref Foo2]): Atomic[ref Test2] =
+      newAtomicRef(obj.unsafeGet().inner2)
+    atomicAccessors(ref Test2)
+  else:
+    proc inner2*(obj: Atomic[ref Foo2]): ref Test2 =
+      obj.unsafeGet().inner2
 
 proc testDeep() =
 
