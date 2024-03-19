@@ -46,8 +46,9 @@ proc `=destroy`*[T](aref: var Atomic[T]) =
     var cell = head(cast[pointer](aref.rp))
     echo "decl aref: ", cell.rc, " ", cell.count()
     # `atomicDec` returns the new value
-    if atomicDec(cell.rc, rcIncrement) == 0:
+    if atomicDec(cell.rc, rcIncrement) == -rcIncrement:
       echo "\nlast <<<"
+      inc cell.rc, rcIncrement
       `=destroy`(aref.rp)
       aref.rp = nil
       echo ">> done"
@@ -66,7 +67,7 @@ proc `=copy`*[T](dest: var Atomic[T]; source: Atomic[T]) =
 proc newAtomic*[T: ref](obj: sink T): Atomic[T] =
   result = Atomic[Test](rp: move obj)
   var cell = head(cast[pointer](result.rp))
-  discard atomicInc(cell.rc, 2*rcIncrement)
+  discard atomicInc(cell.rc, rcIncrement)
 
 proc `[]`*[T: ref object](aref: Atomic[T]): lent T =
   aref.rp
