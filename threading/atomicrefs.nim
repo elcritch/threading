@@ -78,38 +78,60 @@ import typetraits
 
 macro atomicAccessors*(tp: typed) =
 
-  tp.expectKind(nnkSym)
-  let tname = ident tp.strVal
-  let timpl = tp.getImpl()
-  timpl.expectKind(nnkTypeDef)
-  timpl[^1].expectKind(nnkRefTy)
+  echo "\n==============================\n"
+  var tp = tp
+  # echo "TP:tree:\n", tp.treeRepr
+
+  var timpl, tname: NimNode
+  if tp.kind == nnkSym:
+    timpl = tp.getImpl()
+    timpl.expectKind(nnkTypeDef)
+    tname = tp
+    # echo "\nTIMPL:\n", timpl.treeRepr
+  elif tp.kind == nnkRefTy:
+    # echo "REF:TY: "
+    timpl = tp[^1].getImpl()
+    tname = tp
+    # echo "\nTIMPL:post:\n", timpl.treeRepr
 
   result = newStmtList()
 
-  echo "TP: ", tname
-  echo "TP:\n", timpl.treeRepr
-  let tbody = timpl[^1][0]
-  if tbody.kind == nnkObjectTy:
-    let idents = tbody[^1]
-    idents.expectKind(nnkRecList)
-    echo "obj:\n", idents.treeRepr
-    for ident in idents:
-      if ident[0].kind != nnkPostFix:
-        continue
-      let name = ident(ident[0][1].strVal)
-      let fieldName = ident ident[0][1].repr
-      let fieldTp = ident[1]
-      let obj = ident "obj"
-      echo "NAME: ", name
-      let acc = quote do:
-        when `fieldTp` is ref:
-          proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
-            newAtomicRef(`obj`.unsafeGet().`fieldName`)
-          atomicAccessors(`fieldTp`)
-        else:
-          proc `name`*(`obj`: Atomic[`tname`]): `fieldTp` =
-            `obj`.unsafeGet().`fieldName`
-      result.add acc
+  # echo "TIMPL:kind: ", timpl[^1].kind
+  var tobj = timpl[^1]
+  if tobj.kind == nnkRefTy:
+    tobj = tobj[0]
+
+  var tbody = tobj
+  # echo "\nTP:body:\n", tbody.treeRepr
+  if tbody.kind == nnkSym:
+    let ity = tbody.getImpl()
+    ity.expectKind(nnkTypeDef)
+    tbody = ity[^1]
+
+  # echo "\nTP:body:post:\n", tbody.treeRepr
+  tbody.expectKind(nnkObjectTy)
+
+
+  let idents = tbody[^1]
+  idents.expectKind(nnkRecList)
+  # echo "\nobj:\n", idents.treeRepr
+  for ident in idents:
+    if ident[0].kind != nnkPostFix:
+      continue
+    let name = ident(ident[0][1].strVal)
+    let fieldName = ident ident[0][1].repr
+    let fieldTp = ident[1]
+    let obj = ident "obj"
+    echo "NAME: ", name
+    let acc = quote do:
+      when `fieldTp` is ref:
+        proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
+          newAtomicRef(`obj`.unsafeGet().`fieldName`)
+        atomicAccessors(`fieldTp`)
+      else:
+        proc `name`*(`obj`: Atomic[`tname`]): `fieldTp` =
+          `obj`.unsafeGet().`fieldName`
+    result.add acc
   echo "RES:\n", result.repr
 
 when isMainModule:
@@ -122,3 +144,17 @@ when isMainModule:
 
   # expandMacros:
   atomicAccessors(Foo)
+
+  type
+    Test2* = object
+      msg2*: string
+    TestRef* = ref Test2
+
+    Foo2* = object
+      inner2*: TestRef
+    FooRef* = ref Foo2
+
+  # expandMacros:
+  # atomicAccessors(FooRef)
+
+  atomicAccessors(ref Foo2)
