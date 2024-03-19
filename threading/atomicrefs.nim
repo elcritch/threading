@@ -30,11 +30,13 @@ template count(x: Cell): untyped =
 
 type
   Atomic*[T: ref] {.requiresInit.} = object
-    # rp: T
     rp {.cursor.}: T
 
   Test* = ref object
     msg*: string
+
+  Foo* = ref object
+    inner*: Test
 
 proc `=destroy`*(obj: var type(Test()[])) =
   echo "destroying Test obj ", obj.msg
@@ -65,7 +67,7 @@ proc `=copy`*[T](dest: var Atomic[T]; source: Atomic[T]) =
     echo "copy cnt: ", cell.count
 
 proc newAtomic*[T: ref](obj: sink T): Atomic[T] =
-  result = Atomic[Test](rp: move obj)
+  result = Atomic[T](rp: obj)
   var cell = head(cast[pointer](result.rp))
   discard atomicInc(cell.rc, rcIncrement)
 
@@ -88,17 +90,32 @@ proc `[]`*[T: ref object](aref: Atomic[T]): lent T =
 # testBasic()
 # echo "done"
 
-proc testBasic() =
+# proc testBasic() =
 
-  var t1 = newAtomic[Test](Test(msg: "hello world!"))
+#   var t1 = newAtomic[Test](Test(msg: "hello world!"))
+#   var t2 = t1
+
+#   echo "t1: ", cast[pointer](t1.rp).repr
+#   echo "t2: ", cast[pointer](t2.rp).repr
+#   echo "t2: ", head(cast[pointer](t2.rp)).count()
+
+#   echo "t1: ", t1[].msg
+#   echo "t2: ", t2[].msg
+
+# testBasic()
+
+proc testDeep() =
+
+  var t1 = newAtomic(Foo(inner: Test(msg: "hello world!")))
   var t2 = t1
 
   echo "t1: ", cast[pointer](t1.rp).repr
   echo "t2: ", cast[pointer](t2.rp).repr
   echo "t2: ", head(cast[pointer](t2.rp)).count()
 
-  echo "t1: ", t1[].msg
-  echo "t2: ", t2[].msg
+  echo "t1: ", t1[].inner.msg
+  echo "t2: ", t2[].inner.msg
+  let y = t1[].inner
+  echo "y: ", y.msg
 
-testBasic()
-echo "done"
+testDeep()
