@@ -77,8 +77,6 @@ import macros
 import typetraits
 
 macro atomicAccessors*(tp: typed) =
-
-  echo "\n==============================\n"
   var timpl, tname: NimNode
   if tp.kind == nnkSym:
     timpl = tp.getImpl()
