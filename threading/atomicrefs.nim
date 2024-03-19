@@ -56,8 +56,8 @@ proc `=copy`*[T](dest: var Atomic[T]; source: Atomic[T]) =
   echo "copy"
   # protect against self-assignments:
   if dest.rp != source.rp:
-    # `=destroy`(dest)
-    # wasMoved(dest)
+    `=destroy`(dest)
+    wasMoved(dest)
     dest.rp = source.rp
     var cell = head(cast[pointer](dest.rp))
     discard atomicInc(cell.rc, rcIncrement)
