@@ -82,6 +82,9 @@ import macros
 import typetraits
 
 macro atomicAccessors*(tp: typed) =
+
+  echo "TP: ", tp.treeRepr
+
   var timpl, tname: NimNode
   if tp.kind == nnkSym:
     timpl = tp.getImpl()
@@ -90,6 +93,8 @@ macro atomicAccessors*(tp: typed) =
   elif tp.kind == nnkRefTy:
     timpl = tp[^1].getImpl()
     tname = tp
+
+  # echo "TIMPL: ", timpl.treeRepr
 
   var tbody = timpl[^1]
   if tbody.kind == nnkRefTy:
@@ -102,6 +107,7 @@ macro atomicAccessors*(tp: typed) =
 
   tbody.expectKind(nnkObjectTy)
 
+
   let idents = tbody[^1]
   idents.expectKind(nnkRecList)
   result = newStmtList()
@@ -112,17 +118,26 @@ macro atomicAccessors*(tp: typed) =
     let fieldName = ident ident[0][1].repr
     let fieldTp = ident[1]
     let obj = ident "obj"
-    let acc = quote do:
-      when `fieldTp` is ref:
+    let fieldKd = fieldTp.getType()
+    let fieldIsRef = fieldKd.kind == nnkBracketExpr and fieldKd[0].strVal == "ref"
+    let fieldIsObj = fieldKd.kind == nnkObjectTy
+    # echo "FIELD: ", fieldTp.treeRepr
+    # echo "FIELD: ", fieldTp.getType.treeRepr
+    echo "FIELD:fieldIsRef: ", fieldIsRef, " fieldIsObj: ", fieldIsObj
+    if fieldIsRef:
+      result.add quote do:
         proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
           newAtomicRef(`obj`.unsafeGet().`fieldName`)
         atomicAccessors(`fieldTp`)
-      elif `fieldTp` is object:
+    elif fieldIsObj:
+      result.add quote do:
         atomicAccessors(`fieldTp`)
-      else:
+    else:
+      result.add quote do:
         proc `name`*(`obj`: Atomic[`tname`]): `fieldTp` =
           `obj`.unsafeGet().`fieldName`
-    result.add acc
+
+
   echo "RES:\n", result.repr
 
 when isMainModule:
@@ -139,8 +154,6 @@ when isMainModule:
       inner*: Test2
       outer*: Bar
 
-
-  # expandMacros:
   atomicAccessors(Foo)
 
   # type
