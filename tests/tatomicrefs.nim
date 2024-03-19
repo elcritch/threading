@@ -13,7 +13,6 @@ proc `=destroy`*(obj: type(Test()[])) =
   echo "destroying Test obj: ", obj.msg
   `=destroy`(obj.msg)
 
-import std/macros
 atomicAccessors(Foo)
 
 proc testDeep() =
