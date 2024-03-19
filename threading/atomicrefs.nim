@@ -31,9 +31,14 @@ template count(x: Cell): untyped =
 type
   Atomic*[T: ref] = object
     rp: T
+    # rp {.cursor.}: T
 
   Test* = ref object
     msg*: string
+
+proc `=destroy`*(obj: var type(Test()[])) =
+  echo "destroying Test obj ", obj.msg
+  `=destroy`(obj.msg)
 
 proc `=destroy`*[T](aref: var Atomic[T]) =
   echo "destroy aref: ", cast[pointer](aref.rp).repr
