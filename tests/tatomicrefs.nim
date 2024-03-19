@@ -13,12 +13,13 @@ proc `=destroy`*(obj: type(Test()[])) =
   echo "destroying Test obj: ", obj.msg
   `=destroy`(obj.msg)
 
+atomicAccessors(Foo)
+
 proc inner*(obj: Atomic[Foo]): Atomic[Test] =
   newAtomicRef(obj.unsafeGet().inner)
 
 proc msg*(obj: Atomic[Test]): string =
   obj.unsafeGet().msg
-
 
 proc testDeep() =
 
