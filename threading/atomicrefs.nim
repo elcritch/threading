@@ -33,10 +33,9 @@ type
     rp {.cursor.}: T
 
 proc `=destroy`*[T](aref: Atomic[T]) =
-  echo "destroy aref: ", cast[pointer](aref.rp).repr
   if aref.rp != nil:
     var cell = head(cast[pointer](aref.rp))
-    echo "decl aref: ", cell.rc, " ", cell.count()
+    echo "destroy aref: ", cast[pointer](aref.rp).repr, " rc: ", cell.rc, " cnt: ", cell.count()
     # `atomicDec` returns the new value
     if atomicDec(cell.rc, rcIncrement) == -rcIncrement:
       echo "\nlast <<<"
@@ -67,5 +66,9 @@ proc newAtomicRef*[T: ref](obj: T): Atomic[T] =
 
 proc unsafeGet*[T](aref: Atomic[T]): lent T =
   aref.rp
+
+proc unsafeCount*[T](aref: ref T): int =
+  var cell = head(cast[pointer](aref))
+  cell.count()
 
 

@@ -29,12 +29,22 @@ proc testDeep() =
   echo "t2: addr: ", cast[pointer](t2.unsafeGet).repr
   # echo "t2: ", head(cast[pointer](t2.unsafeGet)).count()
 
-  echo "t1: ", t1.inner.msg
-  echo "t2: ", t2.inner.msg
-  echo "t2.inner:", " isUnique: ", t2.inner.unsafeGet.isUniqueRef
-  let y: Atomic[Test] = t1.inner
-  echo "y: addr: ", cast[pointer](y.unsafeGet).repr
-  echo "y: ", y.msg, " isUnique: ", y.unsafeGet.isUniqueRef()
+  echo "t1:inner: ", cast[pointer](t1.inner.unsafeGet).repr
+  echo "t2:inner: ", cast[pointer](t2.inner.unsafeGet).repr
+  echo "t1:inner:count: ", t1.unsafeGet.inner.unsafeCount()
+  echo "t2:inner:count: ", t2.unsafeGet.inner.unsafeCount()
+  echo "t2:inner:count: ", t2.unsafeGet.inner.unsafeCount()
+
+  block:
+    echo ""
+    let y: Atomic[Test] = t1.inner
+    echo "y: addr: ", cast[pointer](y.unsafeGet).repr
+    echo "t1:inner:count: ", t1.unsafeGet.inner.unsafeCount()
+    echo "y: ", y.msg, "y:count: ", y.unsafeGet.unsafeCount()
+
+  echo ""
+  echo "t1:inner:count: ", t1.unsafeGet.inner.unsafeCount()
+  echo "t2.inner.post:", " isUnique: ", t2.inner.unsafeGet.isUniqueRef
 
 testDeep()
 
