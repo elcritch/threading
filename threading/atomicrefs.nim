@@ -86,13 +86,10 @@ macro atomicAccessors*(tp: typed) =
     timpl = tp[^1].getImpl()
     tname = tp
 
-  result = newStmtList()
+  var tbody = timpl[^1]
+  if tbody.kind == nnkRefTy:
+    tbody = tbody[0]
 
-  var tobj = timpl[^1]
-  if tobj.kind == nnkRefTy:
-    tobj = tobj[0]
-
-  var tbody = tobj
   if tbody.kind == nnkSym:
     let ity = tbody.getImpl()
     ity.expectKind(nnkTypeDef)
@@ -102,6 +99,7 @@ macro atomicAccessors*(tp: typed) =
 
   let idents = tbody[^1]
   idents.expectKind(nnkRecList)
+  result = newStmtList()
   for ident in idents:
     if ident[0].kind != nnkPostFix:
       continue
