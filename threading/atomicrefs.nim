@@ -112,20 +112,6 @@ macro atomicAccessors*(tp: typed) =
       result.add acc
   echo "RES:\n", result.repr
 
-# macro mkAccessor(name, tp, parentTp: untyped): untyped =
-#   let n = ident name.strVal
-#   let obj = ident "obj"
-
-#   result = quote do:
-#     proc `n`(`obj`: Atomic[`parentTp`]): Atomic[`tp`] =
-#       newAtomicRef(`obj`.unsafeGet().`n`)
-#     atomicAccessors(`tp`)
-
-# template atomicAccessors*(tp: typed) =
-#   for name, field in fieldPairs(tp()[]):
-#     when typeof(field) is ref:
-#       mkAccessor(name, typeof(field), tp)
-
 when isMainModule:
   type
     Test* = ref object
