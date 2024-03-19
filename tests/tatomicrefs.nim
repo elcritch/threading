@@ -8,12 +8,15 @@ type
 
   Foo* = ref object
     inner*: ref Test
+    other*: string
+
 
 proc `=destroy`*(obj: Test) =
   echo "destroying Test obj: ", obj.msg
   `=destroy`(obj.msg)
 
 atomicAccessors(Foo)
+
 
 proc testDeep() =
 

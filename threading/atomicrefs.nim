@@ -29,8 +29,11 @@ template count(x: Cell): untyped =
   x.rc shr rcShift
 
 type
-  Atomic*[T: ref] {.requiresInit.} = object
-    rp {.cursor.}: T
+  Atomic*[T] {.requiresInit.} = object
+    when T is ref:
+      rp {.cursor.}: T
+    elif T is object:
+      obj: T
 
 proc `=destroy`*[T](aref: Atomic[T]) =
   if aref.rp != nil:
@@ -65,7 +68,10 @@ proc newAtomicRef*[T: ref](obj: T): Atomic[T] =
   discard atomicInc(cell.rc, rcIncrement)
 
 proc unsafeGet*[T](aref: Atomic[T]): lent T =
-  aref.rp
+  when T is ref:
+    aref.rp
+  elif T is object:
+    aref.obj
 
 proc unsafeCount*[T](aref: ref T): int =
   var cell = head(cast[pointer](aref))
@@ -111,6 +117,8 @@ macro atomicAccessors*(tp: typed) =
         proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
           newAtomicRef(`obj`.unsafeGet().`fieldName`)
         atomicAccessors(`fieldTp`)
+      elif `fieldTp` is object:
+        atomicAccessors(`fieldTp`)
       else:
         proc `name`*(`obj`: Atomic[`tname`]): `fieldTp` =
           `obj`.unsafeGet().`fieldName`
@@ -121,23 +129,29 @@ when isMainModule:
   type
     Test* = ref object
       msg*: string
+    Test2* = ref object
+      msg*: string
+
+    Bar* = object
+      field*: Test
 
     Foo* = ref object
-      inner*: Test
+      inner*: Test2
+      outer*: Bar
+
 
   # expandMacros:
   atomicAccessors(Foo)
 
-  type
-    Test2* = object
-      msg2*: string
-    TestRef* = ref Test2
+  # type
+  #   Test2* = object
+  #     msg2*: string
+  #   TestRef* = ref Test2
 
-    Foo2* = object
-      inner2*: ref Test2
-    FooRef* = ref Foo2
+  #   Foo2* = object
+  #     inner2*: ref Test2
+  #   FooRef* = ref Foo2
+  # # expandMacros:
+  # # atomicAccessors(FooRef)
 
-  # expandMacros:
-  # atomicAccessors(FooRef)
-
-  atomicAccessors(ref Foo2)
+  # atomicAccessors(ref Foo2)
