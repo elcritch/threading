@@ -79,7 +79,10 @@ proc unsafeCount*[T](aref: ref T): int =
 
 
 import macros
+import macrocache
 import typetraits
+
+const mcTable = CacheTable"subTest"
 
 macro atomicAccessors*(tp: typed) =
 
@@ -104,9 +107,7 @@ macro atomicAccessors*(tp: typed) =
     let ity = tbody.getImpl()
     ity.expectKind(nnkTypeDef)
     tbody = ity[^1]
-
   tbody.expectKind(nnkObjectTy)
-
 
   let idents = tbody[^1]
   idents.expectKind(nnkRecList)
@@ -123,7 +124,7 @@ macro atomicAccessors*(tp: typed) =
     let fieldIsObj = fieldKd.kind == nnkObjectTy
     # echo "FIELD: ", fieldTp.treeRepr
     # echo "FIELD: ", fieldTp.getType.treeRepr
-    echo "FIELD:fieldIsRef: ", fieldIsRef, " fieldIsObj: ", fieldIsObj
+    echo "FIELD: ", fieldName, " tp: ", fieldTp, " fieldIsRef: ", fieldIsRef, " fieldIsObj: ", fieldIsObj
     if fieldIsRef:
       result.add quote do:
         proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
