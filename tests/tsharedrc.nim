@@ -67,20 +67,3 @@ testDeep()
 #   echo "t2: ", t2[].msg
 # testThread()
 # echo "done"
-
-when false:
-  when string is ref:
-    proc msg*(obj: SharedRc[Test]): SharedRc[string] =
-      newSharedRcRef(obj.unsafeGet().msg)
-    atomicAccessors(string)
-  else:
-    proc msg*(obj: SharedRc[Test]): string =
-      obj.unsafeGet().msg
-
-  when ref Test2 is ref:
-    proc inner2*(obj: SharedRc[ref Foo2]): SharedRc[ref Test2] =
-      newSharedRcRef(obj.unsafeGet().inner2)
-    atomicAccessors(ref Test2)
-  else:
-    proc inner2*(obj: SharedRc[ref Foo2]): ref Test2 =
-      obj.unsafeGet().inner2

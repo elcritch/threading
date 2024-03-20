@@ -62,6 +62,7 @@ proc `=copy`*[T](dest: var SharedRc[T]; source: SharedRc[T]) =
       discard atomicInc(cell.rc, rcIncrement)
       echo "copy cnt: ", cell.count
   elif T is object:
+    ## TODO: handle any reffed-fields
     # `=destroy`(aref)
     discard
 
