@@ -1,5 +1,5 @@
 
-import threading/atomicrefs
+import threading/sharedrc
 
 
 type
