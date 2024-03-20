@@ -29,7 +29,7 @@ proc testDeep() =
 
   let test = Test.new()
   test.msg = "hello world!"
-  var t1 = newAtomic(Foo(inner: test))
+  var t1 = newSharedRc(Foo(inner: test))
   var t2 = t1
 
   echo "t1: addr: ", cast[pointer](t1.unsafeGet).repr
@@ -44,7 +44,7 @@ proc testDeep() =
 
   block:
     echo ""
-    let y: Atomic[ref Test] = t1.inner
+    let y: SharedRc[ref Test] = t1.inner
     echo "y: addr: ", cast[pointer](y.unsafeGet).repr
     echo "t1:inner:count: ", t1.unsafeGet.inner.unsafeCount()
     echo "y: ", y.msg, "y:count: ", y.unsafeGet.unsafeCount()
@@ -56,11 +56,11 @@ proc testDeep() =
 testDeep()
 
 # proc testThread() =
-#   proc test(aref: Atomic[Test]) {.thread.} =
+#   proc test(aref: SharedRc[Test]) {.thread.} =
 #     var lref = aref
 #     echo "thread: ", lref[].msg
-#   var thread: Thread[Atomic[Test]]
-#   var t1 = newAtomic[Test](Test(msg: "hello world!"))
+#   var thread: Thread[SharedRc[Test]]
+#   var t1 = newSharedRc[Test](Test(msg: "hello world!"))
 #   var t2 = t1
 #   createThread(thread, test, t1)
 #   thread.joinThread()
@@ -70,17 +70,17 @@ testDeep()
 
 when false:
   when string is ref:
-    proc msg*(obj: Atomic[Test]): Atomic[string] =
-      newAtomicRef(obj.unsafeGet().msg)
+    proc msg*(obj: SharedRc[Test]): SharedRc[string] =
+      newSharedRcRef(obj.unsafeGet().msg)
     atomicAccessors(string)
   else:
-    proc msg*(obj: Atomic[Test]): string =
+    proc msg*(obj: SharedRc[Test]): string =
       obj.unsafeGet().msg
 
   when ref Test2 is ref:
-    proc inner2*(obj: Atomic[ref Foo2]): Atomic[ref Test2] =
-      newAtomicRef(obj.unsafeGet().inner2)
+    proc inner2*(obj: SharedRc[ref Foo2]): SharedRc[ref Test2] =
+      newSharedRcRef(obj.unsafeGet().inner2)
     atomicAccessors(ref Test2)
   else:
-    proc inner2*(obj: Atomic[ref Foo2]): ref Test2 =
+    proc inner2*(obj: SharedRc[ref Foo2]): ref Test2 =
       obj.unsafeGet().inner2

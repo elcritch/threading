@@ -29,13 +29,13 @@ template count(x: Cell): untyped =
   x.rc shr rcShift
 
 type
-  Atomic*[T] {.requiresInit.} = object
+  SharedRc*[T] {.requiresInit.} = object
     when T is ref:
       rp {.cursor.}: T
     elif T is object:
       obj: T
 
-proc `=destroy`*[T](aref: Atomic[T]) =
+proc `=destroy`*[T](aref: SharedRc[T]) =
   when T is ref:
     if aref.rp != nil:
       var cell = head(cast[pointer](aref.rp))
@@ -50,7 +50,7 @@ proc `=destroy`*[T](aref: Atomic[T]) =
     # `=destroy`(aref)
     discard
 
-proc `=copy`*[T](dest: var Atomic[T]; source: Atomic[T]) =
+proc `=copy`*[T](dest: var SharedRc[T]; source: SharedRc[T]) =
   echo "copy"
   when T is ref:
     # protect against self-assignments:
@@ -65,20 +65,20 @@ proc `=copy`*[T](dest: var Atomic[T]; source: Atomic[T]) =
     # `=destroy`(aref)
     discard
 
-proc newAtomic*[T: ref](obj: sink T): Atomic[T] =
-  result = Atomic[T](rp: move obj)
+proc newSharedRc*[T: ref](obj: sink T): SharedRc[T] =
+  result = SharedRc[T](rp: move obj)
   var cell = head(cast[pointer](result.rp))
   discard atomicInc(cell.rc, rcIncrement)
 
-proc newAtomic*[T: object](obj: T): Atomic[T] =
-  result = Atomic[T](obj: obj)
+proc newSharedRc*[T: object](obj: T): SharedRc[T] =
+  result = SharedRc[T](obj: obj)
 
-proc newAtomicRef*[T: ref](obj: T): Atomic[T] =
-  result = Atomic[T](rp: obj)
+proc newSharedRcRef*[T: ref](obj: T): SharedRc[T] =
+  result = SharedRc[T](rp: obj)
   var cell = head(cast[pointer](result.rp))
   discard atomicInc(cell.rc, rcIncrement)
 
-proc unsafeGet*[T](aref: Atomic[T]): lent T =
+proc unsafeGet*[T](aref: SharedRc[T]): lent T =
   when T is ref:
     aref.rp
   elif T is object:
@@ -142,19 +142,19 @@ macro atomicAccessors*(tp: typed) =
     if fieldIsRef:
       echo "TP:REF: "
       result.add quote do:
-        proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
-          newAtomicRef(`obj`.unsafeGet().`fieldName`)
+        proc `name`*(`obj`: SharedRc[`tname`]): SharedRc[`fieldTp`] =
+          newSharedRcRef(`obj`.unsafeGet().`fieldName`)
         atomicAccessors(`fieldTp`)
     elif fieldIsObj:
       echo "TP:OBJ: "
       result.add quote do:
-        proc `name`*(`obj`: Atomic[`tname`]): Atomic[`fieldTp`] =
-          newAtomic(`obj`.unsafeGet().`fieldName`)
+        proc `name`*(`obj`: SharedRc[`tname`]): SharedRc[`fieldTp`] =
+          newSharedRc(`obj`.unsafeGet().`fieldName`)
         atomicAccessors(`fieldTp`)
     else:
       echo "TP:ELSE: "
       result.add quote do:
-        proc `name`*(`obj`: Atomic[`tname`]): `fieldTp` =
+        proc `name`*(`obj`: SharedRc[`tname`]): `fieldTp` =
           `obj`.unsafeGet().`fieldName`
 
 
