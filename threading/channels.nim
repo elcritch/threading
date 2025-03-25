@@ -181,6 +181,11 @@ proc freeChannel(chan: ChannelRaw) =
 # MPMC Channels (Multi-Producer Multi-Consumer)
 # ------------------------------------------------------------------------------
 
+template incrementReadIndex(chan: ChannelRaw) =
+  atomicInc(chan.tail)
+  if chan.getTail() == 2 * chan.slots:
+    chan.setTail(0)
+
 proc channelSend(chan: ChannelRaw, data: pointer, size: int, blocking: static bool): bool =
   assert not chan.isNil
   assert not data.isNil
@@ -195,13 +200,19 @@ proc channelSend(chan: ChannelRaw, data: pointer, size: int, blocking: static bo
     while chan.isFull():
       wait(chan.spaceAvailableCV, chan.lock)
   else:
-    if chan.isFull() and not chan.overwrite:
-      release(chan.lock)
-      return false
+    if chan.isFull():
+      if chan.overwrite:
+        incrementReadIndex(chan)
+      else:
+        release(chan.lock)
+        return false
 
+  let prevHead = chan.getHead()
+  let prevTail = chan.getTail()
   assert not chan.isFull() or chan.overwrite
 
-  let writeIdx = if chan.getHead() < chan.slots:
+  let writeIdx =
+    if chan.getHead() < chan.slots:
       chan.getHead()
     else:
       chan.getHead() - chan.slots
@@ -211,6 +222,7 @@ proc channelSend(chan: ChannelRaw, data: pointer, size: int, blocking: static bo
   if chan.getHead() == 2 * chan.slots:
     chan.setHead(0)
 
+  echo "send indexes prev: ", prevHead, " ", prevTail, " after: ", chan.getHead(), " ", chan.getTail(), " slots: ", chan.slots
   signal(chan.dataAvailableCV)
   release(chan.lock)
   result = true
@@ -235,16 +247,15 @@ proc channelReceive(chan: ChannelRaw, data: pointer, size: int, blocking: static
 
   assert not chan.isEmpty()
 
-  let readIdx = if chan.getTail() < chan.slots:
+  let readIdx =
+    if chan.getTail() < chan.slots:
       chan.getTail()
     else:
       chan.getTail() - chan.slots
 
   copyMem(data, chan.buffer[readIdx * size].addr, size)
 
-  atomicInc(chan.tail)
-  if chan.getTail() == 2 * chan.slots:
-    chan.setTail(0)
+  incrementReadIndex(chan)
 
   signal(chan.spaceAvailableCV)
   release(chan.lock)
