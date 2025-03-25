@@ -8,7 +8,6 @@ suite "Ring Buffer Channel Tests":
   test "Non-blocking ring buffer behavior":
     
     proc fillBuffer(n: int): seq[int] =
-      echo "\nfillBuffer ", n
       var chan = newChan[int](BufferSize, overwrite = true)
       # Fill the buffer
       for i in 0..<BufferSize+n:
@@ -30,3 +29,7 @@ suite "Ring Buffer Channel Tests":
     check fillBuffer(2) == @[2, 3, 4]
     check fillBuffer(3) == @[3, 4, 5]
     check fillBuffer(4) == @[4, 5, 6]
+    check fillBuffer(5) == @[5, 6, 7]
+    check fillBuffer(6) == @[6, 7, 8]
+    check fillBuffer(7) == @[7, 8, 9]
+    check fillBuffer(8) == @[8, 9, 10]

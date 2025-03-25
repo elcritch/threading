@@ -222,7 +222,6 @@ proc channelSend(chan: ChannelRaw, data: pointer, size: int, blocking: static bo
   if chan.getHead() == 2 * chan.slots:
     chan.setHead(0)
 
-  echo "send indexes prev: ", prevHead, " ", prevTail, " after: ", chan.getHead(), " ", chan.getTail(), " slots: ", chan.slots
   signal(chan.dataAvailableCV)
   release(chan.lock)
   result = true
