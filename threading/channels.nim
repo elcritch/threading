@@ -110,11 +110,12 @@ type
   ChannelObj = object
     lock: Lock
     spaceAvailableCV, dataAvailableCV: Cond
+    overwrite: bool
     slots: int         ## Number of item slots in the buffer
     head: Atomic[int]  ## Write/enqueue/send index
     tail: Atomic[int]  ## Read/dequeue/receive index
-    buffer: ptr UncheckedArray[byte]
     atomicCounter: Atomic[int]
+    buffer: ptr UncheckedArray[byte]
 
 # ------------------------------------------------------------------------------
 
@@ -185,7 +186,7 @@ proc channelSend(chan: ChannelRaw, data: pointer, size: int, blocking: static bo
   assert not data.isNil
 
   when not blocking:
-    if chan.isFull(): return false
+    if chan.isFull() and not chan.overwrite: return false
 
   acquire(chan.lock)
 
@@ -194,11 +195,11 @@ proc channelSend(chan: ChannelRaw, data: pointer, size: int, blocking: static bo
     while chan.isFull():
       wait(chan.spaceAvailableCV, chan.lock)
   else:
-    if chan.isFull():
+    if chan.isFull() and not chan.overwrite:
       release(chan.lock)
       return false
 
-  assert not chan.isFull()
+  assert not chan.isFull() or chan.overwrite
 
   let writeIdx = if chan.getHead() < chan.slots:
       chan.getHead()
@@ -384,10 +385,11 @@ proc peek*[T](c: Chan[T]): int {.inline.} =
   ## Returns an estimation of the current number of messages held by the channel.
   numItems(c.d)
 
-proc newChan*[T](elements: Positive = 30): Chan[T] =
+proc newChan*[T](elements: Positive = 30, overwrite = false): Chan[T] =
   ## An initialization procedure, necessary for acquiring resources and
   ## initializing internal state of the channel.
   ##
   ## `elements` is the capacity of the channel and thus how many messages it can hold
   ## before it refuses to accept any further messages.
   result = Chan[T](d: allocChannel(sizeof(T), elements))
+  result.d.overwrite = overwrite
