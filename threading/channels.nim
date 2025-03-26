@@ -322,7 +322,7 @@ proc trySend*[T](c: Chan[T], src: sink Isolated[T]): bool {.inline.} =
   ##
   ## Returns `false` if the message was not sent because the number of pending
   ## messages in the channel exceeded its capacity.
-  result = channelSend(c.d, src.addr, sizeof(T), false)
+  result = channelSend(c.d, src.addr, sizeof(T), false, false)
   if result:
     wasMoved(src)
 
@@ -350,7 +350,7 @@ proc tryTake*[T](c: Chan[T], src: var Isolated[T]): bool {.inline.} =
   ##
   ## Returns `false` if the message was not sent because the number of pending
   ## messages in the channel exceeded its capacity.
-  result = channelSend(c.d, src.addr, sizeof(T), false)
+  result = channelSend(c.d, src.addr, sizeof(T), false, false)
   if result:
     wasMoved(src)
 
