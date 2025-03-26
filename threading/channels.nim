@@ -28,11 +28,10 @@
 ## the underlying resources and synchronization. It has to be initialized using
 ## the `newChan` proc. Sending and receiving operations are provided by the
 ## blocking `send` and `recv` procs, and non-blocking `trySend` and `tryRecv`
-## procs. Send operations add messages to the channel, receiving operations
-## remove them.
+## procs. For ring buffer behavior, use the `push` proc rather than `send`.
+## Send operations add messages to the channel, receiving operations remove them,
+## while `push` adds a message or overwrites the oldest message if the channel is full.
 ##
-## Normally, the `send` proc will block if the channel is full. If the `overwrite`
-## parameter is set to `true`, the oldest message will be overwritten instead of blocking.
 ##
 ## See also:
 ## * [std/isolation](https://nim-lang.org/docs/isolation.html)
@@ -102,8 +101,8 @@ runnableExamples("--threads:on --gc:orc"):
 
   block example_non_blocking_overwrite:
     var chanRingBuffer = newChan[string](elements = 1)
-    chanRingBuffer.send("Hello")
-    chanRingBuffer.send("World", overwrite = true)
+    chanRingBuffer.push("Hello")
+    chanRingBuffer.push("World")
     var msg = ""
     assert chanRingBuffer.tryRecv(msg)
     assert msg == "World"
@@ -367,7 +366,7 @@ proc tryRecv*[T](c: Chan[T], dst: var T): bool {.inline.} =
   ## Returns `false` and does not change `dist` if no message was received.
   channelReceive(c.d, dst.addr, sizeof(T), false)
 
-proc send*[T](c: Chan[T], src: sink Isolated[T], overwrite = false) {.inline.} =
+proc send*[T](c: Chan[T], src: sink Isolated[T]) {.inline.} =
   ## Sends the message `src` to the channel `c`.
   ## This blocks the sending thread until `src` was successfully sent.
   ##
@@ -377,13 +376,31 @@ proc send*[T](c: Chan[T], src: sink Isolated[T], overwrite = false) {.inline.} =
   ## messages from the channel are removed.
   when defined(gcOrc) and defined(nimSafeOrcSend):
     GC_runOrc()
-  discard channelSend(c.d, src.addr, sizeof(T), true, overwrite)
+  discard channelSend(c.d, src.addr, sizeof(T), true, false)
   wasMoved(src)
 
-template send*[T](c: Chan[T]; src: T, overwrite = false) =
+template send*[T](c: Chan[T]; src: T) =
   ## Helper template for `send`.
   mixin isolate
-  send(c, isolate(src), overwrite)
+  send(c, isolate(src))
+
+proc push*[T](c: Chan[T], src: sink Isolated[T]) {.inline.} =
+  ## Sends the message `src` to the channel `c`.
+  ## This blocks the sending thread until `src` was successfully sent.
+  ##
+  ## The memory of `src` is moved, not copied.
+  ##
+  ## If the channel is already full with messages this will block the thread until
+  ## messages from the channel are removed.
+  when defined(gcOrc) and defined(nimSafeOrcSend):
+    GC_runOrc()
+  discard channelSend(c.d, src.addr, sizeof(T), true, overwrite=true)
+  wasMoved(src)
+
+template push*[T](c: Chan[T]; src: T) =
+  ## Helper template for `push`.
+  mixin isolate
+  push(c, isolate(src))
 
 proc recv*[T](c: Chan[T], dst: var T) {.inline.} =
   ## Receives a message from the channel `c` and fill `dst` with its value.

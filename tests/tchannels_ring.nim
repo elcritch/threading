@@ -11,7 +11,7 @@ suite "Ring Buffer Channel Tests":
       var chan = newChan[int](BufferSize)
       # Fill the buffer
       for i in 0..<BufferSize+n:
-        chan.send(i, overwrite = true)
+        chan.push(i)
       
       # Receive values - should get BufferSize as first value
       var values: seq[int]
@@ -36,8 +36,8 @@ suite "Ring Buffer Channel Tests":
 
   test "Non-blocking ring buffer behavior with size 1":
     var chan = newChan[int](1)
-    chan.send(1, overwrite = true)
-    chan.send(2, overwrite = true)
+    chan.push(1)
+    chan.push(2)
     var x: int
     check chan.tryRecv(x)
     check x == 2
