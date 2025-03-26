@@ -101,9 +101,9 @@ runnableExamples("--threads:on --gc:orc"):
     assert messages.len >= 2
 
   block example_non_blocking_overwrite:
-    var chanRingBuffer = newChan[string](elements = 1, overwrite = true)
+    var chanRingBuffer = newChan[string](elements = 1)
     chanRingBuffer.send("Hello")
-    chanRingBuffer.send("World")
+    chanRingBuffer.send("World", overwrite = true)
     var msg = ""
     assert chanRingBuffer.tryRecv(msg)
     assert msg == "World"
@@ -121,7 +121,6 @@ type
   ChannelObj = object
     lock: Lock
     spaceAvailableCV, dataAvailableCV: Cond
-    overwrite: bool
     slots: int         ## Number of item slots in the buffer
     head: Atomic[int]  ## Write/enqueue/send index
     tail: Atomic[int]  ## Read/dequeue/receive index
@@ -192,25 +191,30 @@ proc freeChannel(chan: ChannelRaw) =
 # MPMC Channels (Multi-Producer Multi-Consumer)
 # ------------------------------------------------------------------------------
 
-template incrementReadIndex(chan: ChannelRaw) =
+template incrWriteIndex(chan: ChannelRaw) =
+  atomicInc(chan.head)
+  if chan.getHead() == 2 * chan.slots:
+    chan.setHead(0)
+
+template incrReadIndex(chan: ChannelRaw) =
   atomicInc(chan.tail)
   if chan.getTail() == 2 * chan.slots:
     chan.setTail(0)
 
-proc channelSend(chan: ChannelRaw, data: pointer, size: int, blocking: static bool): bool =
+proc channelSend(chan: ChannelRaw, data: pointer, size: int, blocking: static bool, overwrite: bool): bool =
   assert not chan.isNil
   assert not data.isNil
 
   when not blocking:
-    if chan.isFull() and not chan.overwrite: return false
+    if chan.isFull() and not overwrite: return false
 
   acquire(chan.lock)
 
   # check for when another thread was faster to fill
   when blocking:
     if chan.isFull():
-      if chan.overwrite:
-        incrementReadIndex(chan)
+      if overwrite:
+        incrReadIndex(chan)
       else:
         while chan.isFull():
           wait(chan.spaceAvailableCV, chan.lock)
@@ -228,9 +232,8 @@ proc channelSend(chan: ChannelRaw, data: pointer, size: int, blocking: static bo
       chan.getHead() - chan.slots
 
   copyMem(chan.buffer[writeIdx * size].addr, data, size)
-  atomicInc(chan.head)
-  if chan.getHead() == 2 * chan.slots:
-    chan.setHead(0)
+
+  incrWriteIndex(chan)
 
   signal(chan.dataAvailableCV)
   release(chan.lock)
@@ -264,7 +267,7 @@ proc channelReceive(chan: ChannelRaw, data: pointer, size: int, blocking: static
 
   copyMem(data, chan.buffer[readIdx * size].addr, size)
 
-  incrementReadIndex(chan)
+  incrReadIndex(chan)
 
   signal(chan.spaceAvailableCV)
   release(chan.lock)
@@ -364,7 +367,7 @@ proc tryRecv*[T](c: Chan[T], dst: var T): bool {.inline.} =
   ## Returns `false` and does not change `dist` if no message was received.
   channelReceive(c.d, dst.addr, sizeof(T), false)
 
-proc send*[T](c: Chan[T], src: sink Isolated[T]) {.inline.} =
+proc send*[T](c: Chan[T], src: sink Isolated[T], overwrite = false) {.inline.} =
   ## Sends the message `src` to the channel `c`.
   ## This blocks the sending thread until `src` was successfully sent.
   ##
@@ -374,13 +377,13 @@ proc send*[T](c: Chan[T], src: sink Isolated[T]) {.inline.} =
   ## messages from the channel are removed.
   when defined(gcOrc) and defined(nimSafeOrcSend):
     GC_runOrc()
-  discard channelSend(c.d, src.addr, sizeof(T), true)
+  discard channelSend(c.d, src.addr, sizeof(T), true, overwrite)
   wasMoved(src)
 
-template send*[T](c: Chan[T]; src: T) =
+template send*[T](c: Chan[T]; src: T, overwrite = false) =
   ## Helper template for `send`.
   mixin isolate
-  send(c, isolate(src))
+  send(c, isolate(src), overwrite)
 
 proc recv*[T](c: Chan[T], dst: var T) {.inline.} =
   ## Receives a message from the channel `c` and fill `dst` with its value.
@@ -405,11 +408,10 @@ proc peek*[T](c: Chan[T]): int {.inline.} =
   ## Returns an estimation of the current number of messages held by the channel.
   numItems(c.d)
 
-proc newChan*[T](elements: Positive = 30, overwrite = false): Chan[T] =
+proc newChan*[T](elements: Positive = 30): Chan[T] =
   ## An initialization procedure, necessary for acquiring resources and
   ## initializing internal state of the channel.
   ##
   ## `elements` is the capacity of the channel and thus how many messages it can hold
   ## before it refuses to accept any further messages.
   result = Chan[T](d: allocChannel(sizeof(T), elements))
-  result.d.overwrite = overwrite

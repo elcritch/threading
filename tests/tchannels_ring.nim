@@ -8,10 +8,10 @@ suite "Ring Buffer Channel Tests":
   test "Non-blocking ring buffer behavior":
     
     proc fillBuffer(n: int): seq[int] =
-      var chan = newChan[int](BufferSize, overwrite = true)
+      var chan = newChan[int](BufferSize)
       # Fill the buffer
       for i in 0..<BufferSize+n:
-        chan.send(i)
+        chan.send(i, overwrite = true)
       
       # Receive values - should get BufferSize as first value
       var values: seq[int]
@@ -35,9 +35,9 @@ suite "Ring Buffer Channel Tests":
     check fillBuffer(8) == @[8, 9, 10]
 
   test "Non-blocking ring buffer behavior with size 1":
-    var chan = newChan[int](1, overwrite = true)
-    chan.send(1)
-    chan.send(2)
+    var chan = newChan[int](1)
+    chan.send(1, overwrite = true)
+    chan.send(2, overwrite = true)
     var x: int
     check chan.tryRecv(x)
     check x == 2
