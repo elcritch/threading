@@ -33,3 +33,11 @@ suite "Ring Buffer Channel Tests":
     check fillBuffer(6) == @[6, 7, 8]
     check fillBuffer(7) == @[7, 8, 9]
     check fillBuffer(8) == @[8, 9, 10]
+
+  test "Non-blocking ring buffer behavior with size 1":
+    var chan = newChan[int](1, overwrite = true)
+    chan.send(1)
+    chan.send(2)
+    var x: int
+    check chan.tryRecv(x)
+    check x == 2
