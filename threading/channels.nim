@@ -101,11 +101,11 @@ runnableExamples("--threads:on --gc:orc"):
     assert messages.len >= 2
 
   block example_non_blocking_overwrite:
-    var chan = newChan[string](elements = 1, overwrite = true)
-    discard chan.send("Hello")
-    discard chan.send("World")
+    var chanRingBuffer = newChan[string](elements = 1, overwrite = true)
+    chanRingBuffer.send("Hello")
+    chanRingBuffer.send("World")
     var msg = ""
-    assert chan.tryRecv(msg)
+    assert chanRingBuffer.tryRecv(msg)
     assert msg == "World"
 
 when not (defined(gcArc) or defined(gcOrc) or defined(gcAtomicArc) or defined(nimdoc)):
