@@ -385,13 +385,10 @@ template send*[T](c: Chan[T]; src: T) =
   send(c, isolate(src))
 
 proc push*[T](c: Chan[T], src: sink Isolated[T]) {.inline.} =
-  ## Sends the message `src` to the channel `c`.
-  ## This blocks the sending thread until `src` was successfully sent.
+  ## Pushes the message `src` to the channel `c`.
+  ## This is a non-blocking operation that overwrites the oldest message if the channel is full.
   ##
   ## The memory of `src` is moved, not copied.
-  ##
-  ## If the channel is already full with messages this will block the thread until
-  ## messages from the channel are removed.
   when defined(gcOrc) and defined(nimSafeOrcSend):
     GC_runOrc()
   discard channelSend(c.d, src.addr, sizeof(T), true, overwrite=true)
