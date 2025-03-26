@@ -31,8 +31,8 @@
 ## procs. Send operations add messages to the channel, receiving operations
 ## remove them.
 ##
-## Overwrite enables a ringbuffer mode where `send` overwrites the oldest message
-## if the channel is full.
+## Normally, the `send` proc will block if the channel is full. If the `overwrite`
+## parameter is set to `true`, the oldest message will be overwritten instead of blocking.
 ##
 ## See also:
 ## * [std/isolation](https://nim-lang.org/docs/isolation.html)
