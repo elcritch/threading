@@ -31,6 +31,9 @@
 ## procs. Send operations add messages to the channel, receiving operations
 ## remove them.
 ##
+## Overwrite enables a ringbuffer mode where `send` overwrites the oldest message
+## if the channel is full.
+##
 ## See also:
 ## * [std/isolation](https://nim-lang.org/docs/isolation.html)
 ##
@@ -96,6 +99,14 @@ runnableExamples("--threads:on --gc:orc"):
     assert messages[^1] == "Another message"
     # At least one non-successful attempt to receive the message had to occur.
     assert messages.len >= 2
+
+  block example_non_blocking_overwrite:
+    var chan = newChan[string](elements = 1, overwrite = true)
+    discard chan.send("Hello")
+    discard chan.send("World")
+    var msg = ""
+    assert chan.tryRecv(msg)
+    assert msg == "World"
 
 when not (defined(gcArc) or defined(gcOrc) or defined(gcAtomicArc) or defined(nimdoc)):
   {.error: "This module requires one of --mm:arc / --mm:atomicArc / --mm:orc compilation flags".}
@@ -197,19 +208,18 @@ proc channelSend(chan: ChannelRaw, data: pointer, size: int, blocking: static bo
 
   # check for when another thread was faster to fill
   when blocking:
-    while chan.isFull():
-      wait(chan.spaceAvailableCV, chan.lock)
-  else:
     if chan.isFull():
       if chan.overwrite:
         incrementReadIndex(chan)
       else:
-        release(chan.lock)
-        return false
+        while chan.isFull():
+          wait(chan.spaceAvailableCV, chan.lock)
+  else:
+    if chan.isFull():
+      release(chan.lock)
+      return false
 
-  let prevHead = chan.getHead()
-  let prevTail = chan.getTail()
-  assert not chan.isFull() or chan.overwrite
+  assert not chan.isFull()
 
   let writeIdx =
     if chan.getHead() < chan.slots:

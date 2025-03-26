@@ -11,7 +11,7 @@ suite "Ring Buffer Channel Tests":
       var chan = newChan[int](BufferSize, overwrite = true)
       # Fill the buffer
       for i in 0..<BufferSize+n:
-        check chan.trySend(i)
+        chan.send(i)
       
       # Receive values - should get BufferSize as first value
       var values: seq[int]
